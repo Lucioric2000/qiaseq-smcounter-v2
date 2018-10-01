@@ -3,26 +3,28 @@
 # integrate prior info of bkg error distribution (based on duplex data) and data specific error distribution
 # modified the prior distribution using more stringint consensus criteria. 
 # different prior distributions for including/excluding 1 read pair UMIs
-# Chang Xu, 16MAY2017
+# allow Beta distribution adjustment when there is no VCF input
+# Chang Xu, 10July2018
 
 rm(list=ls())
 library(plyr)
-bkgErrorDistSimulation <- '/srv/qgen/data/annotation/bkg.error.v2.RData'
 
 ##############################
 ##       Parameters         ##
 ##############################
 args <- commandArgs(TRUE)
-wd <- args[1]
-outlong <- args[2]
-bkgfile <- args[3]
-seed <- as.numeric(args[4])
-nsim <- as.numeric(args[5])
-outfile_pval <- args[6]
-outfile_bedgraph <- args[7]
-outprefix <- args[8]
-rpb <- as.numeric(args[9])
-minAltUMI <- as.numeric(args[10])
+bkgErrorDistSimulation <- args[1]
+wd <- args[2]
+outlong <- args[3]
+bkgfile <- args[4]
+seed <- as.numeric(args[5])
+nsim <- as.numeric(args[6])
+outfile_pval <- args[7]
+outfile_bedgraph <- args[8]
+outprefix <- args[9]
+rpb <- as.numeric(args[10])
+minAltUMI <- as.numeric(args[11])
+inputVCF <- args[12]
 min.mtDepth <- 1000
 
 # set working directory
@@ -60,7 +62,7 @@ calc.pval <- function(TYPE, REF, ALT, sForUMT, sRevUMT, sForVMT, sRevVMT, p.high
 pval <- function(n, x, p){
 #       @param int    n    :   The UMI depth at a particular site
 #       @param float  x    :   Number of variant UMIs at that site
-#       @param vector p    :   Vector of values simulated from the \
+#       @param vector p    :   Vector of values simulated from the
 #                              background error distribution of transitions 
 
   if(x >= 3){
@@ -72,8 +74,10 @@ pval <- function(n, x, p){
   return(pval)
 }
 # function to find the LOD
-lod <- function(n){
-#      @param   int n : The UMI depth to calculate the lod for
+calc_lod <- function(n,p.high){
+#      @param   int n        : The UMI depth to calculate the lod for
+#      @param   float p.high : Vector of values simulated from the
+#                              background error distribution of transitions
 
   # high lod
   low <- 3
@@ -91,7 +95,12 @@ lod <- function(n){
   }
   lod.high <- x.high / n
 
-  return(lod.high)
+  if(is.na(lod.high)){
+    print(n)
+    print(p.high)
+    print(lod.high)
+  }
+  return(min(1.0,lod.high)) # cap lod to 1.0, this becomes inf when umi depth is 0
 }
 # function to collapse same value(lod/coverage) columns
 # and write a bedgraph file
@@ -118,14 +127,12 @@ output_bedgraph <- function(df,outfile,header,val_col="foo"){
       }
       else {
 	 if (prev_chr != chr) {
-	    out <- sprintf("%s\t%i\t%i\t%f\n",prev_chr,init_pos-1,prev_pos,prev_val)
-            out <- paste(prev_chr,"\t",init_pos-1,"\t",prev_pos,"\t",round(prev_val,5),"\n")
+            out <- paste(prev_chr,"\t",as.integer(init_pos-1),"\t",as.integer(prev_pos),"\t",round(prev_val,5),"\n",sep="")
             cat(out,file=file_handle)
 	    init_pos <- pos
 	 }
-	 else if (prev_val != val) {
-	    out <- sprintf("%s\t%i\t%i\t%f\n",prev_chr,init_pos-1,prev_pos,prev_val)
-            out <- paste(prev_chr,"\t",init_pos-1,"\t",prev_pos,"\t",round(prev_val,5),"\n")
+	 else if (prev_val != val) {	    
+            out <- paste(prev_chr,"\t",as.integer(init_pos-1),"\t",as.integer(prev_pos),"\t",round(prev_val,5),"\n",sep="")
             cat(out,file=file_handle)
 	    init_pos <- pos
 	 }
@@ -135,8 +142,7 @@ output_bedgraph <- function(df,outfile,header,val_col="foo"){
       }
    }
    # finish out last line of the file
-   out = sprintf("%s\t%i\t%i\t%f\n",prev_chr,init_pos-1,prev_pos,prev_val)
-   out <- paste(prev_chr,"\t",init_pos-1,"\t",prev_pos,"\t",round(prev_val,3),"\n")
+   out <- paste(prev_chr,"\t",as.integer(init_pos-1),"\t",as.integer(prev_pos),"\t",round(prev_val,3),"\n",sep="")
    cat(out,file=file_handle)
    close(file_handle)
 }
@@ -176,38 +182,44 @@ p0.low <- top4$p0[3]
 n0.high <- floor(nsim * p0.high)
 n0.low <- floor(nsim * p0.low)
 
-# read in data-specific background error file
-bkg <- read.delim(bkgfile, header=T, stringsAsFactors=F, sep='\t')
-colnames(bkg) <- cols
+# read in data-specific background error file - only when input is not VCF
+if(inputVCF == 'none'){
+  bkg <- read.delim(bkgfile, header=T, stringsAsFactors=F, sep='\t')
+  colnames(bkg) <- cols
 
-################### bkg errors from the readset ##################
-# A/G error rate from data 
-tmp <- bkg[(bkg$ref=='A' & bkg$neg.strand > min.mtDepth) | (bkg$ref=='T' & bkg$pos.strand > min.mtDepth), ]
-tmp$all <- ifelse(tmp$ref=='A', tmp$neg.strand, tmp$pos.strand)
-d.ag <- tmp$AG / tmp$all
-tmp <- tmp[d.ag < 0.01,]
-mean.ag <- sum(tmp$AG) / sum(tmp$all)
-n.ag <- nrow(tmp)
+  ################### bkg errors from the readset ##################
+  # A/G error rate from data 
+  tmp <- bkg[(bkg$ref=='A' & bkg$neg.strand > min.mtDepth) | (bkg$ref=='T' & bkg$pos.strand > min.mtDepth), ]
+  tmp$all <- ifelse(tmp$ref=='A', tmp$neg.strand, tmp$pos.strand)
+  d.ag <- tmp$AG / tmp$all
+  tmp <- tmp[d.ag < 0.01,]
+  mean.ag <- sum(tmp$AG) / sum(tmp$all)
+  n.ag <- nrow(tmp)
 
-# G/A error rate from data
-tmp <- bkg[(bkg$ref=='G' & bkg$neg.strand > min.mtDepth) | (bkg$ref=='C' & bkg$pos.strand > min.mtDepth), ]
-tmp$all <- ifelse(tmp$ref=='G', tmp$neg.strand, tmp$pos.strand)
-d.ga <- tmp$GA / tmp$all
-tmp <- tmp[d.ga < 0.01,]
-mean.ga <- sum(tmp$GA) / sum(tmp$all)
-n.ga <- nrow(tmp)
+  # G/A error rate from data
+  tmp <- bkg[(bkg$ref=='G' & bkg$neg.strand > min.mtDepth) | (bkg$ref=='C' & bkg$pos.strand > min.mtDepth), ]
+  tmp$all <- ifelse(tmp$ref=='G', tmp$neg.strand, tmp$pos.strand)
+  d.ga <- tmp$GA / tmp$all
+  tmp <- tmp[d.ga < 0.01,]
+  mean.ga <- sum(tmp$GA) / sum(tmp$all)
+  n.ga <- nrow(tmp)
 
-# highest error rate
-mu.high <- max(mean.ag, mean.ga)
-n.high <- min(n.ag, n.ga)
+  # highest error rate
+  mu.high <- max(mean.ag, mean.ga)
+  n.high <- min(n.ag, n.ga)
 
-if(is.na(mu.high) | is.na(n.high) | n.high < 100) {
-   p.high <- rbeta(n=nsim, shape1=a.ga.orig, shape2=b.ga.orig)
-} else{
-   a.high <- calc.a(mu.high, sigma.high)
-   b.high <- calc.b(mu.high, sigma.high)
-   p.high <- rbeta(n=nsim, shape1=a.high, shape2=b.high)
+  if(is.na(mu.high) | is.na(n.high) | n.high < 100) {
+    p.high <- rbeta(n=nsim, shape1=a.ga.orig, shape2=b.ga.orig)
+  } else{
+    a.high <- calc.a(mu.high, sigma.high)
+    b.high <- calc.b(mu.high, sigma.high)
+    p.high <- rbeta(n=nsim, shape1=a.high, shape2=b.high)
+  }
+} else{  # when input is VCF, use the original beta parameters
+  p.high <- rbeta(n=nsim, shape1=a.ga.orig, shape2=b.ga.orig)
 }
+
+# low error rates always determined by the prior only
 p.low <- c(rbeta(n=nsim-n0.low, shape1=a.ct.orig, shape2=b.ct.orig), rep(0, n0.low))
 
 # compute limit of detection (lod)  for binned sUMT values 
@@ -215,13 +227,25 @@ p.low <- c(rbeta(n=nsim-n0.low, shape1=a.ct.orig, shape2=b.ct.orig), rep(0, n0.l
 bin_width = 10
 all_sUMT_bin_vals <- seq(from = min(dat$sUMT), to = min(10000,max(dat$sUMT)), by = bin_width)
 all_sUMT_bins <- seq(from=1,to=length(all_sUMT_bin_vals),by=1)
-binned_lod_vals <- sapply(all_sUMT_bin_vals, lod)
-lod_for_sUMT <- binned_lod_vals[floor((dat$sUMT - min(dat$sUMT) + bin_width)/bin_width)]
+binned_lod_vals <- sapply(all_sUMT_bin_vals, calc_lod, p.high=p.high)
+max_bin <- length(all_sUMT_bin_vals)
+
+get_bin_indices <- function(sumt,max_bin){
+  if(sumt > 10000) {
+    return (max_bin)
+  }
+  else {
+    return (floor((sumt - min(dat$sUMT) + bin_width)/bin_width))
+  }
+}
+lod_for_sUMT <- binned_lod_vals[sapply(dat$sUMT,get_bin_indices,max_bin=max_bin)]
 # write lod bedgraph file
 lod_df <- data.frame(chr=dat$CHROM,pos=dat$POS,lod=lod_for_sUMT)
-header <- sprintf("track type=bedGraph name='%s.lod'\n",outprefix)
-outfile <- sprintf("%s.umi_depths.lod.bedgraph",outprefix)
+header <- sprintf("track type=bedGraph name='%s.variant-calling-lod'\n",outprefix)
+outfile <- sprintf("%s.umi_depths.variant-calling-lod.bedgraph",outprefix)
 output_bedgraph(lod_df,outfile,header,"lod")
+lod.quantiles <- quantile(lod_df$lod,probs=c(0.01,0.05,0.10,0.50,0.90,0.95,0.99))
+write.table(lod.quantiles, paste(outfile,".quantiles.txt",sep=""), sep='|', row.names=T, col.names=F, quote=F)
 # write sUMT bedgraph file
 sumt_df <- data.frame(chr=dat$CHROM,pos=dat$POS,sumt=dat$sUMT)
 header <- sprintf("track type=bedGraph name='%s.umi_depths.variant-calling-input'\n",outprefix)

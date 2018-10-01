@@ -1,14 +1,8 @@
-#!/usr/bin/python
-# vim: tabstop=9 expandtab shiftwidth=3 softtabstop=3
-# convert long text output to VCF format (v2.4). Merges multi-allelic variants to a single row
-# currently, only allow multi-allelic SNPs
-# Chang Xu. 20OCT2017
-
 import os
-import sys
-from operator import itemgetter
 
-
+#-------------------------------------------------------------------------------------
+# assign genotype
+#-------------------------------------------------------------------------------------
 def assign_gt(alt,chrom,vmf):
    ''' Function for faking the Genotype i.e. GT field
    for downstream tools
@@ -33,10 +27,11 @@ def assign_ad(uumi,vumi):
    for downstream tools
    :param uumi (str) total umis at the variant site
    :param vumi (str) umis corresponding to the non-reference allele(s) at the variant site (comma seperated for multi-allelic sites)
-   '''
+   '''    
    vumis = vumi.split(',')   
+   refumi = int(uumi)
    for umi in vumis:
-      refumi = int(uumi) - int(umi)
+      refumi = refumi - int(umi)
    refumi = str(refumi)
    ad = refumi + ',' + ','.join(vumis)
    return ad 
@@ -65,12 +60,12 @@ def biAllelicVar(alleles, RepRegion, outVcf, outVariants):
 # function to handle multi-allelic variants
 #--------------------------------------------------------------------------------------
 def multiAllelicVar(alleles, RepRegion, outVcf, outVariants):
-  ID = '.'
-  tmpAlleles = [x for x in alleles if x[-1] == 'PASS']
-  lenTmpAlleles = len(tmpAlleles)
-  if lenTmpAlleles == 0:
+   ID = '.'
+   tmpAlleles = [x for x in alleles if x[-1] == 'PASS']
+   lenTmpAlleles = len(tmpAlleles)
+   if lenTmpAlleles == 0:
      pass
-  elif lenTmpAlleles == 1:
+   elif lenTmpAlleles == 1:
      chrom, pos, ref, alt, typ, dp, vdp, vaf, umt, vmt, vmf, qual, fqual, fltr = tmpAlleles[0]
      INFO = ';'.join(
             ['TYPE=' +typ,'RepRegion=' + RepRegion,'DP='+dp,'UMT='+umt,'VMT='+vmt,
@@ -84,7 +79,7 @@ def multiAllelicVar(alleles, RepRegion, outVcf, outVariants):
      outVcf.write(vcfLine)
      cutVarLine = '\t'.join([chrom, pos, ref, alt, typ, dp, vdp, vaf, umt, vmt, vmf, qual, fltr]) + '\n'
      outVariants.write(cutVarLine)
-  else:
+   else:
      VDPs, VAFs, VMTs, UMTs, VMFs, QUALs, fQUALs, TYPEs, REFs, ALTs, DPs = [], [], [], [], [], [], [], [], [], [], []
      for allele in tmpAlleles:
         chrom, pos, ref, alt, typ, dp, vdp, vaf, umt, vmt, vmf, qual, fqual, fltr = allele
@@ -122,10 +117,7 @@ def multiAllelicVar(alleles, RepRegion, outVcf, outVariants):
      allVMFs = ','.join(VMFs)
      allDPs = ','.join(DPs)
 
-     INFO = ';'.join(
-            ['TYPE=' +allTypes,'RepRegion=' + RepRegion,'DP='+allDPs,'UMT='+umt,'VMT='+allVMTs,
-             'VMF='+allVMFs]
-         )          
+     INFO = ';'.join(['TYPE=' +allTypes,'RepRegion=' + RepRegion,'DP='+allDPs,'UMT='+umt,'VMT='+allVMTs,'VMF='+allVMFs])
      FORMAT = 'GT:AD:VF' 
      gt = assign_gt(finalAlt,chrom,allVMFs)
      ad = assign_ad(umt,allVMTs)   
@@ -138,7 +130,7 @@ def multiAllelicVar(alleles, RepRegion, outVcf, outVariants):
 #--------------------------------------------------------------------------------------
 # main function
 #--------------------------------------------------------------------------------------
-def main(runPath, outlong, sampleName):
+def makeVcf(runPath, outlong, sampleName):
    # change working directory to runDir
    os.chdir(runPath)
    outAll = open(sampleName + '.smCounter.all.txt', 'w')
@@ -147,13 +139,13 @@ def main(runPath, outlong, sampleName):
    outLowPi = open(sampleName + '.smCounter.lowQ.txt','w')
    
    cutoff = 6
-   minCutoff = {'INDEL': 2.5,'SNP':5} ## Cutoff for the low-PI file
-
+   minCutoff = {'INDEL': 2,'SNP':2} ## Cutoff for the low-PI file
    
    ID = '.'
    headerAll = ['CHROM', 'POS', 'REF', 'ALT', 'TYPE', 'sUMT', 'sForUMT', 'sRevUMT', 'sVMT', 'sForVMT', 'sRevVMT', 'sVMF', 'sForVMF', 'sRevVMF', 'VDP', 'VAF', 'RefForPrimer', 'RefRevPrimer', 'primerOR', 'pLowQ', 'hqUmiEff', 'allUmiEff', 'refMeanRpb', 'altMeanRpb', 'rpbEffectSize', 'repType', 'hpInfo', 'simpleRepeatInfo', 'tandemRepeatInfo', 'DP', 'FR', 'MT', 'UFR', 'sUMT_A', 'sUMT_T', 'sUMT_G', 'sUMT_C', 'logpval', 'FILTER']
    headerVariants = ['CHROM','POS','REF','ALT','TYPE','DP','VDP','VAF','sUMT','sVMT','sVMF','QUAL','FILTER']
-   headerLowPi = [sampleName] + headerVariants   
+   headerLowPi = ['READ_SET','CHROM','POS','ID','REF','ALT','QUAL','FILTER','TYPE','RepRegion','DP','UMT','VMT','VMF']
+   
    headerVcf = '##fileformat=VCFv4.2' + '\n' + \
          '##reference=GRCh37' + '\n' + \
          '##FILTER=<ID=LM,Description="Low coverage (fewer than 5 barcodes)">' + '\n' + \
@@ -230,7 +222,8 @@ def main(runPath, outlong, sampleName):
          lenAlleles = len(alleles)
 
          if fQUAL < cutoff: ## Write to low-PI file
-            outLowPi.write(sampleName+'\t'+'\t'.join(tempVar)+'\n')
+            outLowPi.write('\t'.join([sampleName,CHROM,POS,".",REF,ALT,QUAL,FILTER,TYPE,RepRegion,DP,sUMT,sVMT,sVMF]))            
+            outLowPi.write('\n')
             continue
             
          # if current chrom and position equal to last line, append it for potential multi-allelic output
@@ -263,17 +256,3 @@ def main(runPath, outlong, sampleName):
    outVariants.close()
    outVcf.close()
    outLowPi.close()
-
-#----------------------------------------------------------------------------------------------
-#pythonism to run from the command line
-#----------------------------------------------------------------------------------------------
-if __name__ == "__main__":
-   runPath = sys.argv[1]
-   outlong = sys.argv[2]
-   sampleName = sys.argv[3]
-   main(runPath, outlong, sampleName)
-
-
-
-
-
