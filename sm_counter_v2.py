@@ -871,8 +871,10 @@ def main(args):
          chrom = lineList[0]
          regionStart = lineList[1]
          regionEnd = lineList[2]
-         unitLen = lineList[4]
-         repLen = lineList[5]
+         fourtelemsplut=lineList[3].split("|")
+         lineList[3:4]=fourtelemsplut
+         unitLen = lineList[3]
+         repLen = lineList[4]
          try:
             unitLen_num = float(unitLen)
          except ValueError:
@@ -891,7 +893,11 @@ def main(args):
    srRegion = defaultdict(list)
    with open('sr.roi.bed','r') as IN:
       for line in IN:
-         [chrom, regionStart, regionEnd, repType, totalLen, unitLen, repLen, repBase] = line.strip().split()
+         lineList=line.strip().split()
+         fourtelemsplut=lineList[3].split("|")
+         lineList[3:4]=fourtelemsplut
+         #print("fl",lineList)
+         [chrom, regionStart, regionEnd, repType, totalLen, unitLen, repLen, repBase] = lineList
          if repType == 'Simple_repeat':
             repType = 'RepS'
          elif repType == 'Low_complexity':
