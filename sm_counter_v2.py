@@ -295,7 +295,7 @@ def vc(bamName, chrom, pos, repType, hpInfo, srInfo, repInfo, minBQ, minMQ, hpLe
    sMtConsByBase['C'] = 0
 
    # pile up reads
-   for read in samfile.pileup(region = chrom + ':' + pos + ':' + pos, truncate=True, max_depth=1000000000, stepper='nofilter'):
+   for read in samfile.pileup(region = chrom + ':' + pos + '-' + pos, truncate=True, max_depth=1000000000, stepper='nofilter'):
       for pileupRead in read.pileups:
          # check if position not on a gap (N or intron in RNAseq)
          dropRead = False
@@ -845,6 +845,7 @@ def main(args):
       print(argName, argVal)
       
    # change working directory to runDir and make output directories
+   runQiaseqDir=os.getcwd()
    if args.runPath != None:
       os.chdir(args.runPath)
    # make /intermediate directory to keep the long output
@@ -1007,7 +1008,7 @@ def main(args):
    outfile2 = 'intermediate/' + args.outPrefix + '.VariantList.long.txt'
    outfile_lod = 'intermediate/' + args.outPrefix + '.umi_depths.lod.bedgraph'
    pValCmd = ' '.join(['Rscript', pValCode, args.runPath, outfile1, bkgFileName, str(seed), str(nsim), outfile2, outfile_lod, args.outPrefix, str(rpb), str(args.minAltUMI)])
-   subprocess.check_call(pValCmd, shell=True)
+   subprocess.check_call(pValCmd, shell=True,cwd=runQiaseqDir)
    print("Completed calculating p-values at " + str(datetime.datetime.now()) + "\n")
 
    # make VCFs

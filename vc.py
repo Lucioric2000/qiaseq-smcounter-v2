@@ -295,7 +295,7 @@ def groupByUMI(readid, BC, base, pairOrder, usedFrag, allFrag, incCond, hpCovere
 def pileup(bamName,chrom,start,end):
    samfile = pysam.AlignmentFile(bamName,"rb")
    current_pos = int(start)
-   for p in samfile.pileup(region = chrom + ":" + start + ":" + end, truncate=True,max_depth = maxDnaReadDepth, stepper="nofilter"):
+   for p in samfile.pileup(region = chrom + ":" + start + "-" + end, truncate=True,max_depth = maxDnaReadDepth, stepper="nofilter"):
       ref_pos = p.pos+1
       while True:
          if ref_pos < current_pos:
@@ -756,6 +756,7 @@ def vc_wrapper(general_args, interval):
       output = []
       hqCache = {}
       infoCache = {}
+      pos=None#To avoid error if the cycle run 0 times
       bamName, minBQ, minMQ, hpLen, mismatchThr, primerDist, mtThreshold, rpb, primerSide, refg, minAltUMI, maxAltAllele, isRna, ds, bamType = general_args
 
       chrom = interval[0][0]
