@@ -11,7 +11,7 @@ import string
 import logging
 import traceback
 # modules from this project
-import filters
+from . import filters
 # 3rd party modules
 import pysam
 
@@ -513,7 +513,7 @@ def dropSingleton(umiDictHq, minRpu, rpu = None, pos = None, ds = None, cvg = No
       
    # rpu < 2 or consensused BAM input: no umi is dropped
    if rpu < 2.0 or bamType == 'consensus':
-      umiToKeep = umiDictHq.keys()
+      umiToKeep = list(umiDictHq.keys())
       
    # 2 <= rpu < 3: gradually and randomly drop singleton umis 
    elif rpu >= 2.0 and rpu < 3.0:
@@ -524,7 +524,7 @@ def dropSingleton(umiDictHq, minRpu, rpu = None, pos = None, ds = None, cvg = No
       for bc in umiDictHq:
          readPairsInBc = len(umiDictHq[bc])
          if readPairsInBc == 1:
-            readid = umiDictHq[bc].keys()[0]
+            readid = list(umiDictHq[bc].keys())[0]
             if umiDictHq[bc][readid][1] == 'Paired':
                pairedUmis.add(bc)
             else:
@@ -546,7 +546,7 @@ def dropSingleton(umiDictHq, minRpu, rpu = None, pos = None, ds = None, cvg = No
 
    # rpu >= 3: drop UMIs with read fragments < minRpu;
    else:
-      umiToKeep = [bc for bc in umiDictHq.iterkeys() if len(umiDictHq[bc]) >= minRpu]
+      umiToKeep = [bc for bc in umiDictHq.keys() if len(umiDictHq[bc]) >= minRpu]
       
    # additional downsample for RNA-seq data only
    if isRna and len(umiToKeep) > ds:
@@ -560,7 +560,7 @@ def dropSingleton(umiDictHq, minRpu, rpu = None, pos = None, ds = None, cvg = No
 # drop UMIs with read fragments < minRpu; duplex-seq
 #-------------------------------------------------------------------------------------
 def dup_dropSingleton(umiDictHq, minRpu, rpu = None, pos = None, ds = None, cvg = None, allUmiDict = None, isRna = None, bamType = None):
-   umiToKeep = [bc for bc in umiDictHq.iterkeys() if len(umiDictHq[bc]) >= minRpu]
+   umiToKeep = [bc for bc in umiDictHq.keys() if len(umiDictHq[bc]) >= minRpu]
    return umiToKeep
 
 #-------------------------------------------------------------------------------------
@@ -652,7 +652,7 @@ def consensus(umiDictHqBase, umiDictAll, umi, consThr, bamType):
    else:
       if len(tmpHqUmi) == 2 and 'all' in tmpHqUmi: 
          del tmpHqUmi['all']
-         cons = tmpHqUmi.keys()[0]
+         cons = list(tmpHqUmi.keys())[0]
       else:
          cons = ''
        
@@ -991,7 +991,7 @@ def vc(bamName, chrom, pos, repType, hpInfo, srInfo, repInfo, minBq, minMq, hpLe
    # output the background error profile
    outLineBkg = outBkgFun(chrom, pos, origRef, sSubTypeCnt, sStrands, sUmiSnp, dSubTypeCnt, dStrands, dUmiSnp)
 
-   alleleList = sorted(sUmiConsByBase.items(), key = operator.itemgetter(1), reverse = True)
+   alleleList = sorted(list(sUmiConsByBase.items()), key = operator.itemgetter(1), reverse = True)
    firstAlt = True
    altCnt = 0
    repTypeSet0 = set() if repType == 'NA' else set(repType.strip().split(';'))

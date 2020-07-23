@@ -1,5 +1,5 @@
 #!/usr/bin/python
-from __future__ import print_function
+
 
 import os
 import subprocess
@@ -9,9 +9,9 @@ import argparse
 import functools
 
 # our modules
-import utils
-import vcf
-from vc import vc_wrapper
+from . import utils
+from . import vcf
+from .vc import vc_wrapper
 
 # global constants
 codePath = os.path.dirname(os.path.abspath(__file__))
@@ -79,7 +79,7 @@ def main(args):
    # get arguments passed in via a lambda object (e.g. from upstream pipeline)
    if type(args) is not argparse.Namespace:
       argsList = []
-      for argName, argVal in args.iteritems():
+      for argName, argVal in args.items():
          if argName == "isDuplex":
             if argVal: # --isDuplex triggered upstream
                argsList.append("--{0}".format(argName))
@@ -87,7 +87,7 @@ def main(args):
             argsList.append("--{0}={1}".format(argName, argVal))
       args = parser.parse_args(argsList)
    
-   for argName, argVal in vars(args).iteritems():
+   for argName, argVal in vars(args).items():
       print("smc2_arg", argName, argVal)
    # change working directory to runDir and make output directories
    if args.runPath != None:

@@ -44,9 +44,9 @@ def vc_wrapper(*args):
    try:
       output = vc(*args)
    except Exception as e:
-      print("Exception thrown in vc() function at genome location:", args[1], args[2])
+      print(("Exception thrown in vc() function at genome location:", args[1], args[2]))
       output = ("Exception thrown!\n" + traceback.format_exc(),'no_bg')
-      print output[0]
+      print(output[0])
       raise Exception(e)
    return output
 	
@@ -486,7 +486,7 @@ def vc(bamName, chrom, pos, repType, hpInfo, srInfo, repInfo, minBQ, minMQ, hpLe
    bcToKeep = []
    # rpb < 2: no MT is dropped
    if rpb < 2.0: 
-      bcToKeep = bcDictHq.keys()
+      bcToKeep = list(bcDictHq.keys())
 
    # 2 <= rpb < 3: gradually and randomly drop 1 read MTs 
    elif rpb >= 2.0 and rpb < 3.0:
@@ -497,7 +497,7 @@ def vc(bamName, chrom, pos, repType, hpInfo, srInfo, repInfo, minBQ, minMQ, hpLe
       for bc in bcDictHq:
          readPairsInBc = len(bcDictHq[bc])
          if readPairsInBc == 1:
-            readid = bcDictHq[bc].keys()[0]
+            readid = list(bcDictHq[bc].keys())[0]
             if bcDictHq[bc][readid][1] == 'Paired':
                pairedMTs.add(bc)
             else:
@@ -520,7 +520,7 @@ def vc(bamName, chrom, pos, repType, hpInfo, srInfo, repInfo, minBQ, minMQ, hpLe
 
    #rpb >= 3: drop all 1 read MTs;
    else:
-      bcToKeep = [bc for bc in bcDictHq.iterkeys() if len(bcDictHq[bc]) >= 2]
+      bcToKeep = [bc for bc in bcDictHq.keys() if len(bcDictHq[bc]) >= 2]
 
    if len(bcToKeep) <= minTotalUMI:
       out_long = '\t'.join([chrom, pos, origRef] + ['0'] * (_num_cols_ - 4) + ['LM']) + '\n'
@@ -575,7 +575,7 @@ def vc(bamName, chrom, pos, repType, hpInfo, srInfo, repInfo, minBQ, minMQ, hpLe
       bkgErrList = [chrom, pos, origRef, str(subTypeCnt['A/G']), str(subTypeCnt['G/A']), str(subTypeCnt['C/T']), str(subTypeCnt['T/C']), str(subTypeCnt['A/C']), str(subTypeCnt['C/A']), str(subTypeCnt['A/T']), str(subTypeCnt['T/A']), str(subTypeCnt['C/G']), str(subTypeCnt['G/C']), str(subTypeCnt['G/T']), str(subTypeCnt['T/G']), str(strands['F']), str(strands['R']), str(smtSNP)]
       out_bkg = '\t'.join(bkgErrList) + '\n'
 
-      sortedList = sorted(sMtConsByBase.items(), key=operator.itemgetter(1), reverse=True)
+      sortedList = sorted(list(sMtConsByBase.items()), key=operator.itemgetter(1), reverse=True)
       firstAlt = True
       altCnt = 0
       # start multi-allelic loop
@@ -828,7 +828,7 @@ def argParseInit():  # this is done inside a function because multiprocessing mo
 def main(args):
    # log run start
    timeStart = datetime.datetime.now()
-   print("Started at " + str(timeStart))
+   print(("Started at " + str(timeStart)))
    
    # if argument parser global not assigned yet, initialize it
    if parser == None:
@@ -837,12 +837,12 @@ def main(args):
    # get arguments passed in via a lambda object (e.g. from upstream pipeline)
    if type(args) is not argparse.Namespace:
       argsList = []
-      for argName, argVal in args.iteritems():
+      for argName, argVal in args.items():
          argsList.append("--{0}={1}".format(argName, argVal))
       args = parser.parse_args(argsList)
    
-   for argName, argVal in vars(args).iteritems():
-      print(argName, argVal)
+   for argName, argVal in vars(args).items():
+      print((argName, argVal))
       
    # change working directory to runDir and make output directories
    runQiaseqDir=os.getcwd()
@@ -960,10 +960,10 @@ def main(args):
    else:
       if args.rpb == 0.0:
          rpb = getMeanRpb(args.bamFile, args.isRna) 
-         print("rpb = " + str(round(rpb,1)) + ", computed by smCounter")
+         print(("rpb = " + str(round(rpb,1)) + ", computed by smCounter"))
       else:
          rpb = args.rpb
-         print("rpb = " + str(round(rpb,1)) + ", given by user")
+         print(("rpb = " + str(round(rpb,1)) + ", given by user"))
       
    # set primer side
    primerSide = 'R1' if args.primerSide == 1 else 'R2'
@@ -1002,14 +1002,14 @@ def main(args):
    outfile_bkg.close()
 
    # calculate p-value
-   print("Started calculating p-values at " + str(datetime.datetime.now()) + "\n")
+   print(("Started calculating p-values at " + str(datetime.datetime.now()) + "\n"))
    outfile1 = 'intermediate/nopval.' + args.outPrefix + '.VariantList.long.txt'
 
    outfile2 = 'intermediate/' + args.outPrefix + '.VariantList.long.txt'
    outfile_lod = 'intermediate/' + args.outPrefix + '.umi_depths.lod.bedgraph'
    pValCmd = ' '.join(['Rscript', pValCode, args.runPath, outfile1, bkgFileName, str(seed), str(nsim), outfile2, outfile_lod, args.outPrefix, str(rpb), str(args.minAltUMI)])
    subprocess.check_call(pValCmd, shell=True,cwd=runQiaseqDir)
-   print("Completed calculating p-values at " + str(datetime.datetime.now()) + "\n")
+   print(("Completed calculating p-values at " + str(datetime.datetime.now()) + "\n"))
 
    # make VCFs
    vcfCmd = ' '.join(['python', vcfCode, args.runPath, outfile2, args.outPrefix])
@@ -1023,8 +1023,8 @@ def main(args):
 
    # log run completion
    timeEnd = datetime.datetime.now()
-   print("Completed at " + str(timeEnd) + "\n")
-   print("Total time: "+ str(timeEnd-timeStart) + "\n")  
+   print(("Completed at " + str(timeEnd) + "\n"))
+   print(("Total time: "+ str(timeEnd-timeStart) + "\n"))  
    
 #pythonism to run from the command line
 #----------------------------------------------------------------------------------------------

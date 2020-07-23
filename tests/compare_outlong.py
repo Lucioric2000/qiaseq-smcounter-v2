@@ -44,7 +44,7 @@ def compare_outlong_info(ORIG_OUT_LONG,NEW_OUT_LONG,verbose):
             num_variants_diff+=1
             not_in_new.append("Not in NewFile : {var} : {info}".format(var = variant,info = ORIG_OUT_LONG[variant]))
         else:
-            for info in ORIG_OUT_LONG[variant].keys():
+            for info in list(ORIG_OUT_LONG[variant].keys()):
                if NEW_OUT_LONG[variant][info] != ORIG_OUT_LONG[variant][info]:
                    flag=1
                    out_diff_var.add(variant)
@@ -60,7 +60,7 @@ def compare_outlong_info(ORIG_OUT_LONG,NEW_OUT_LONG,verbose):
             not_in_old.append("Not in OldFile : {var} : {info}".format(var = variant,info = NEW_OUT_LONG[variant]))
         else:
             if variant not in out_diff_var:
-                for info in NEW_OUT_LONG[variant].keys():
+                for info in list(NEW_OUT_LONG[variant].keys()):
                     if NEW_OUT_LONG[variant][info] != ORIG_OUT_LONG[variant][info]:
                         flag = 1
                         metric_diff.append("Different information for variant : {var} : {info} OldFile:{val1} NewFile: {val2}".format(var=variant,info=info,val1=ORIG_OUT_LONG[variant][info],val2=NEW_OUT_LONG[variant][info]))
@@ -69,16 +69,16 @@ def compare_outlong_info(ORIG_OUT_LONG,NEW_OUT_LONG,verbose):
                     num_out_differences+=1
     if verbose:
         for info in not_in_new:
-            print info
+            print(info)
 
         for info in not_in_old:
-            print info
+            print(info)
         for info in metric_diff:
-            print info
+            print(info)
 
-        print "Total number of sites : {}".format(num_sites)
-        print "Number of sites with differing metrics : {}".format(num_out_differences)
-        print "Number of sites with differing alleles called  : {}".format(num_variants_diff)
+        print("Total number of sites : {}".format(num_sites))
+        print("Number of sites with differing metrics : {}".format(num_out_differences))
+        print("Number of sites with differing alleles called  : {}".format(num_variants_diff))
 
     return (num_sites,num_out_differences,num_variants_diff)
 
@@ -97,6 +97,6 @@ def main(orig_out_long,new_out_long,ci_test,verbose):
 
 if __name__ == '__main__':
     if len(sys.argv) != 5:
-        print "Run as : python compare_outlong.py <original out long> <new out long> <ci_test: True/False> <verbose: True/False>"
+        print("Run as : python compare_outlong.py <original out long> <new out long> <ci_test: True/False> <verbose: True/False>")
         sys.exit(-1)
     main( sys.argv[1],sys.argv[2],bool(sys.argv[3]),bool(sys.argv[4]))
